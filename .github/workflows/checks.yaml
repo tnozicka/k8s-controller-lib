@@ -1,0 +1,33 @@
+name: Recurring checks
+
+on:
+  push:
+    branches:
+    - main
+  schedule:
+  - cron:  '0 22 * * *' # daily at 7pm UTC
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  code-checks:
+    name: Source code analysis
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch all history for all branches and tags so git describe works.
+
+    - name: Set up Go
+      uses: ./.github/actions/setup-go
+
+    - name: Install tools
+      run: |
+        set -euExo pipefail
+        shopt -s inherit_errexit
+        
+        go install golang.org/x/vuln/cmd/govulncheck@latest
+
+    - name: Run govulncheck
+      run: govulncheck ./...
