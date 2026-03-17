@@ -1,0 +1,9 @@
+name: "Set up Go"
+description: "Sets up go at the desired version"
+inputs: {}
+runs:
+  using: "composite"
+  steps:
+  - uses: actions/setup-go@v5
+    with:
+      go-version: '1.25.5'
