@@ -12,22 +12,17 @@ jobs:
   code-checks:
     name: Source code analysis
     runs-on: ubuntu-24.04
+    container:
+      image: quay.io/tnozicka/images:golang-tools-1.26
+      options: --user 1001:1001
+      volumes:
+        - /home/runner:/root
     timeout-minutes: 15
     steps:
     - name: Check out code
       uses: actions/checkout@v4
       with:
         fetch-depth: 0  # Fetch all history for all branches and tags so git describe works.
-
-    - name: Set up Go
-      uses: ./.github/actions/setup-go
-
-    - name: Install tools
-      run: |
-        set -euExo pipefail
-        shopt -s inherit_errexit
-        
-        go install golang.org/x/vuln/cmd/govulncheck@latest
 
     - name: Run govulncheck
       run: govulncheck ./...
