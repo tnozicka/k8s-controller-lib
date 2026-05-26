@@ -21,6 +21,7 @@ import (
 	"github.com/tnozicka/k8s-controller-lib/pkg/genericclioptions"
 	clhealthz "github.com/tnozicka/k8s-controller-lib/pkg/healthz"
 	clhttp "github.com/tnozicka/k8s-controller-lib/pkg/http"
+	"github.com/tnozicka/k8s-controller-lib/pkg/leaderelection"
 	"github.com/tnozicka/k8s-controller-lib/pkg/version"
 )
 
@@ -83,6 +84,11 @@ func (o *Options) Run(ctx context.Context, _ genericclioptions.IOStreams, cmd *c
 		}
 	})
 
+	identity, err := leaderelection.MakeHostnameIdentity()
+	if err != nil {
+		return fmt.Errorf("can't make hostname identity: %w", err)
+	}
+
 	return o.LeaderElection.Run(
 		ctx,
 		cmd.Name(),
@@ -91,6 +97,7 @@ func (o *Options) Run(ctx context.Context, _ genericclioptions.IOStreams, cmd *c
 			Name:      corev1.NamespaceDefault, // Adjust it to your namespace name.
 		},
 		o.kubeClient,
+		identity,
 		func(ctx context.Context) error {
 			wg.StartWithContext(ctx, func(ctx context.Context) {
 				controller.Run(ctx, 1)

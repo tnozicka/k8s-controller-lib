@@ -53,6 +53,7 @@ func (le *LeaderElection) Run(
 	programName string,
 	lease types.NamespacedName,
 	client kubernetes.Interface,
+	identity string,
 	f func(context.Context) error,
 ) error {
 	return clleaderelection.LeaderElectAndRun(
@@ -64,6 +65,7 @@ func (le *LeaderElection) Run(
 		le.LeaderElectionRenewDeadline,
 		le.LeaderElectionRetryPeriod,
 		le.WatchDog,
+		identity,
 		f,
 	)
 }
