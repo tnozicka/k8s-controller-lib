@@ -35,6 +35,15 @@ func (e *ElectionLostError) Error() string {
 	return "leader election lost"
 }
 
+func MakeHostnameIdentity() (string, error) {
+	hostname, err := os.Hostname()
+	if err != nil {
+		return "", fmt.Errorf("can't get hostname: %w", err)
+	}
+
+	return fmt.Sprintf("%s_%s", hostname, uuid.NewUUID()), nil
+}
+
 // LeaderElectAndRun runs the given function while holding the leader lease.
 // Graceful termination and releasing the lock happen simultaneously, so the other instance can take over
 // as soon as possible. This means that in the absolute worst case both can run in parallel for a short period of time,
@@ -49,18 +58,13 @@ func LeaderElectAndRun(
 	leaderelectionRenewDeadline time.Duration,
 	leaderelectionRetryPeriod time.Duration,
 	watchDog *leaderelection.HealthzAdaptor,
+	identity string,
 	f func(context.Context) error,
 ) error {
 	leCtx, leCtxCancel := context.WithCancelCause(programCtx)
 	defer leCtxCancel(nil)
 
-	hostname, err := os.Hostname()
-	if err != nil {
-		return err
-	}
-	// Add a unique identifier so that two processes on the same host don't accidentally both become active.
-	id := hostname + "_" + string(uuid.NewUUID())
-	klog.V(4).Infof("Leader election ID is %q", id)
+	klog.V(4).Infof("Leader election ID is %q", identity)
 
 	resourceLock, err := resourcelock.New(
 		resourcelock.LeasesResourceLock,
@@ -69,7 +73,7 @@ func LeaderElectAndRun(
 		client.CoreV1(),
 		client.CoordinationV1(),
 		resourcelock.ResourceLockConfig{
-			Identity: id,
+			Identity: identity,
 		},
 	)
 	if err != nil {
@@ -138,7 +142,7 @@ func LeaderElectAndRun(
 	klog.InfoS("Starting leader election",
 		"Name", programName,
 		"Lease", lease,
-		"Identity", id,
+		"Identity", identity,
 		"LeaseDuration", leConfig.LeaseDuration,
 		"RenewDeadline", leConfig.RenewDeadline,
 		"RetryPeriod", leConfig.RetryPeriod,
