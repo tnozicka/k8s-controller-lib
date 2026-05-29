@@ -41,6 +41,7 @@ func ApplyMutatingWebhookConfiguration(
 			GetCached: lister.Get,
 			Create:    client.MutatingWebhookConfigurations().Create,
 			Update:    client.MutatingWebhookConfigurations().Update,
+			Delete:    client.MutatingWebhookConfigurations().Delete,
 		},
 		required,
 		options,

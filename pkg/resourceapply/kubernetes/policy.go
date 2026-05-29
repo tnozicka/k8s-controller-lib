@@ -46,6 +46,7 @@ func ApplyPodDisruptionBudget(
 			GetCached: lister.PodDisruptionBudgets(ns).Get,
 			Create:    client.PodDisruptionBudgets(ns).Create,
 			Update:    client.PodDisruptionBudgets(ns).Update,
+			Delete:    client.PodDisruptionBudgets(ns).Delete,
 		},
 		required,
 		options,
