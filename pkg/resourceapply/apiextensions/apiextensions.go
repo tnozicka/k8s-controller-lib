@@ -41,6 +41,7 @@ func ApplyCustomResourceDefinition(
 			GetCached: lister.Get,
 			Create:    client.CustomResourceDefinitions().Create,
 			Update:    client.CustomResourceDefinitions().Update,
+			Delete:    client.CustomResourceDefinitions().Delete,
 		},
 		required,
 		options,

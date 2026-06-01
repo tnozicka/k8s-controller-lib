@@ -15,6 +15,22 @@ func ObjNN(obj metav1.Object) types.NamespacedName {
 	}
 }
 
+type ObjectWithUID struct {
+	types.NamespacedName
+	types.UID
+}
+
+func ObjWithUID(obj metav1.Object) ObjectWithUID {
+	return ObjectWithUID{
+		NamespacedName: ObjNN(obj),
+		UID:            obj.GetUID(),
+	}
+}
+
+func (o ObjectWithUID) String() string {
+	return fmt.Sprintf("%s(UID=%s)", o.NamespacedName, o.UID)
+}
+
 type ObjectWithGroupVersionKind struct {
 	schema.GroupVersionKind
 	types.NamespacedName

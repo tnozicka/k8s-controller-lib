@@ -41,6 +41,7 @@ func ApplyAPIService(
 			GetCached: lister.Get,
 			Create:    client.APIServices().Create,
 			Update:    client.APIServices().Update,
+			Delete:    client.APIServices().Delete,
 		},
 		required,
 		options,

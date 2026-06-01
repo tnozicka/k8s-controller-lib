@@ -73,12 +73,17 @@ func (a *Applier) reportDeleteEvent(obj kubetypes.Object, gvk schema.GroupVersio
 	controllerhelpers.ReportDeleteEvent(a.recorder, obj, gvk, operationErr)
 }
 
-func ApplyGeneric[T kubetypes.Object](
+type ApplyGenericHandlers[T kubetypes.Object] struct {
+	GetRecreateReason func(required T, existing T) (string, *metav1.DeletionPropagation, error)
+}
+
+func ApplyGenericWithHandlers[T kubetypes.Object](
 	ctx context.Context,
 	applier *Applier,
 	control ApplyControl[T],
 	required T,
 	options ApplyOptions,
+	handlers ApplyGenericHandlers[T],
 ) (T, bool, error) {
 	gvk, err := applier.getObjectGVK(required)
 	if err != nil {
@@ -97,6 +102,10 @@ func ApplyGeneric[T kubetypes.Object](
 		return *new(T), false, fmt.Errorf("can't annotate object %q: %w", naming.ObjKindNN(gvk, required), err)
 	}
 
+	createOptions := metav1.CreateOptions{
+		FieldValidation: options.GetFieldValidation(),
+	}
+
 	existing, err := control.GetCached(requiredCopy.GetName())
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
@@ -107,9 +116,7 @@ func ApplyGeneric[T kubetypes.Object](
 		actual, err = control.Create(
 			ctx,
 			requiredCopy,
-			metav1.CreateOptions{
-				FieldValidation: options.GetFieldValidation(),
-			},
+			createOptions,
 		)
 		if apierrors.IsAlreadyExists(err) {
 			klog.V(2).InfoS("Object already exists (stale cache)", "GVK", gvk, "Ref", klog.KObj(requiredCopy))
@@ -152,6 +159,45 @@ func ApplyGeneric[T kubetypes.Object](
 
 	resourcemerge.MergeMetadataInPlace(requiredCopy, existing)
 
+	var recreateReason string
+	var propagationPolicy *metav1.DeletionPropagation
+	if handlers.GetRecreateReason != nil {
+		recreateReason, propagationPolicy, err = handlers.GetRecreateReason(requiredCopy, existing)
+		if err != nil {
+			return *new(T), false, fmt.Errorf("can't get recreate reason: %w", err)
+		}
+	}
+	if len(recreateReason) > 0 {
+		klog.V(2).InfoS(
+			"Apply needs to recreate the object",
+			"Reason", recreateReason,
+			"GVK", gvk,
+			"Ref", naming.ObjWithUID(existing),
+		)
+
+		if propagationPolicy == nil {
+			propagationPolicy = new(metav1.DeletePropagationBackground)
+		}
+
+		err = control.Delete(ctx, existing.GetName(), metav1.DeleteOptions{
+			PropagationPolicy: propagationPolicy,
+		})
+		applier.reportDeleteEvent(existing, gvk, err)
+		if err != nil {
+			return *new(T), false, err
+		}
+
+		requiredCopy.SetResourceVersion("")
+
+		created, err := control.Create(ctx, requiredCopy, createOptions)
+		applier.reportCreateEvent(requiredCopy, gvk, err)
+		if err != nil {
+			return *new(T), false, err
+		}
+
+		return created, true, nil
+	}
+
 	// We shall honor the required ResourceVersion, if it was set.
 	// (Required objects use ResourceVersion in case their input is based on a previous version of themselves.)
 	if len(requiredCopy.GetResourceVersion()) == 0 {
@@ -175,4 +221,14 @@ func ApplyGeneric[T kubetypes.Object](
 	}
 
 	return actual, true, nil
+}
+
+func ApplyGeneric[T kubetypes.Object](
+	ctx context.Context,
+	applier *Applier,
+	control ApplyControl[T],
+	required T,
+	options ApplyOptions,
+) (T, bool, error) {
+	return ApplyGenericWithHandlers(ctx, applier, control, required, options, ApplyGenericHandlers[T]{})
 }

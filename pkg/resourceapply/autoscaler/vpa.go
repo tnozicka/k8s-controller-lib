@@ -52,6 +52,7 @@ func ApplyVerticalPodAutoscaler(
 			GetCached: lister.VerticalPodAutoscalers(ns).Get,
 			Create:    client.VerticalPodAutoscalers(ns).Create,
 			Update:    client.VerticalPodAutoscalers(ns).Update,
+			Delete:    client.VerticalPodAutoscalers(ns).Delete,
 		},
 		required,
 		options,
