@@ -21,6 +21,7 @@ import (
 type controllerAdapter struct {
 	run                     func(ctx context.Context)
 	hasSynced               func() bool
+	hasSyncedChecker        func() cache.DoneChecker
 	lastSyncResourceVersion func() string
 }
 
@@ -36,8 +37,26 @@ func (c *controllerAdapter) HasSynced() bool {
 	return c.hasSynced()
 }
 
+func (c *controllerAdapter) HasSyncedChecker() cache.DoneChecker {
+	return c.hasSyncedChecker()
+}
+
 func (c *controllerAdapter) LastSyncResourceVersion() string {
 	return c.lastSyncResourceVersion()
+}
+
+type alwaysSyncedChecker struct {
+	name string
+}
+
+func (c alwaysSyncedChecker) Name() string {
+	return c.name
+}
+
+func (c alwaysSyncedChecker) Done() <-chan struct{} {
+	done := make(chan struct{})
+	close(done)
+	return done
 }
 
 type processorListener struct {
@@ -46,6 +65,12 @@ type processorListener struct {
 
 func (l processorListener) HasSynced() bool {
 	return true
+}
+
+func (l processorListener) HasSyncedChecker() cache.DoneChecker {
+	return alwaysSyncedChecker{
+		name: fmt.Sprintf("processorListener %T", l.ResourceEventHandler),
+	}
 }
 
 type External interface {
@@ -197,6 +222,7 @@ func (e *external) GetController() cache.Controller {
 			<-ctx.Done()
 		},
 		hasSynced:               e.HasSynced,
+		hasSyncedChecker:        e.HasSyncedChecker,
 		lastSyncResourceVersion: e.LastSyncResourceVersion,
 	}
 }
@@ -335,6 +361,10 @@ func (e *external) Informer() cache.SharedIndexInformer {
 
 func (e *external) HasSynced() bool {
 	return e.queue.HasSynced()
+}
+
+func (e *external) HasSyncedChecker() cache.DoneChecker {
+	return e.queue.HasSyncedChecker()
 }
 
 func (e *external) SetTransform(handler cache.TransformFunc) error {
