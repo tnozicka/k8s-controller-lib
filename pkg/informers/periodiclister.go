@@ -143,6 +143,7 @@ func (p *periodicLister) GetController() cache.Controller {
 	return &controllerAdapter{
 		lastSyncResourceVersion: p.External.LastSyncResourceVersion,
 		hasSynced:               p.External.HasSynced,
+		hasSyncedChecker:        p.External.HasSyncedChecker,
 		run:                     p.RunWithContext,
 	}
 }
