@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"reflect"
+	"sync"
 	"testing"
 	"text/template"
 
@@ -431,6 +432,23 @@ func TestRenderTemplate(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("concurrent", func(t *testing.T) {
+		t.Parallel()
+
+		tmpl := template.Must(template.New("test").Parse("Hello, {{.Name}}!"))
+
+		var wg sync.WaitGroup
+		for range 2 {
+			wg.Go(func() {
+				_, err := RenderTemplate(tmpl, map[string]string{"Name": "World"})
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			})
+		}
+		wg.Wait()
+	})
 }
 
 func TestDecode(t *testing.T) {
