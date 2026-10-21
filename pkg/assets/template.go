@@ -80,13 +80,20 @@ func MakeMap(kvs ...any) (map[any]any, error) {
 }
 
 func RenderTemplate(tmpl *template.Template, inputs any) ([]byte, error) {
+	name := tmpl.Name()
+
+	tmpl, err := tmpl.Clone()
+	if err != nil {
+		return nil, fmt.Errorf("can't clone template %q: %w", name, err)
+	}
+
 	// We always want correctness. (Accidentally missing a key might have side effects.)
 	tmpl.Option("missingkey=error")
 
 	var buf bytes.Buffer
-	err := tmpl.Execute(&buf, inputs)
+	err = tmpl.Execute(&buf, inputs)
 	if err != nil {
-		return nil, fmt.Errorf("can't execute template %q: %w", tmpl.Name(), err)
+		return nil, fmt.Errorf("can't execute template %q: %w", name, err)
 	}
 
 	return buf.Bytes(), nil
